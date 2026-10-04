@@ -28,7 +28,7 @@ DASHSCOPE_BASE_URL = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs
 # Embedding 走 OpenAI 兼容端点（text-embedding-v4，1024 维，10 条/批）
 DASHSCOPE_EMBED_MODEL = os.getenv("DASHSCOPE_EMBED_MODEL", "text-embedding-v4")
 # Rerank 走 DashScope 原生端点（gte-rerank）
-DASHSCOPE_RERANK_MODEL = os.getenv("DASHSCOPE_RERANK_MODEL", "gte-rerank")
+DASHSCOPE_RERANK_MODEL = os.getenv("DASHSCOPE_RERANK_MODEL", "gte-rerank-v2")
 
 # —— 本地模式（可选，RAG_PROVIDER=local 时生效） ——
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")

@@ -30,7 +30,7 @@ services:
       RAG_PROVIDER: dashscope
       DASHSCOPE_API_KEY: YOUR_DASHSCOPE_API_KEY
       DASHSCOPE_EMBED_MODEL: text-embedding-v4   # 1024 维，10 条/批
-      DASHSCOPE_RERANK_MODEL: gte-rerank         # 留空禁用重排
+      DASHSCOPE_RERANK_MODEL: gte-rerank-v2      # 留空禁用重排
       # ---------------- 检索参数 ----------------
       RECALL_TOPK: "60"
       RERANK_TOPK: "20"
