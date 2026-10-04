@@ -18,17 +18,26 @@ LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "60"))
 # 意图识别等轻量调用可用更小模型（留空则同 LLM_MODEL）
 LLM_FAST_MODEL = os.getenv("LLM_FAST_MODEL", "")
 
-# ---------------- RAG 嵌入/重排（GPU 推理） ----------------
-# A100-80G 档推荐: BAAI/bge-m3 + BAAI/bge-reranker-v2-m3
-# A100-12G 档推荐: BAAI/bge-large-zh-v1.5 + （可留空禁用重排或用轻量重排）
+# ---------------- RAG 检索（嵌入/重排） ----------------
+# provider: dashscope（阿里云百炼 API，默认，无需本地 GPU）| local（本地 GPU 模型，需 requirements-local.txt）
+RAG_PROVIDER = os.getenv("RAG_PROVIDER", "dashscope")
+
+# —— 阿里云百炼 DashScope ——
+DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+DASHSCOPE_BASE_URL = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com")
+# Embedding 走 OpenAI 兼容端点（text-embedding-v4，1024 维，10 条/批）
+DASHSCOPE_EMBED_MODEL = os.getenv("DASHSCOPE_EMBED_MODEL", "text-embedding-v4")
+# Rerank 走 DashScope 原生端点（gte-rerank）
+DASHSCOPE_RERANK_MODEL = os.getenv("DASHSCOPE_RERANK_MODEL", "gte-rerank")
+
+# —— 本地模式（可选，RAG_PROVIDER=local 时生效） ——
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-large-zh-v1.5")
 EMBEDDING_DEVICE = os.getenv("EMBEDDING_DEVICE", "auto")  # auto/cuda/cpu
 RERANKER_MODEL = os.getenv("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3")  # 留空禁用
 RERANKER_DEVICE = os.getenv("RERANKER_DEVICE", "auto")
-# bge 系列 retrieval 指令前缀
 EMBED_QUERY_INSTRUCTION = os.getenv("EMBED_QUERY_INSTRUCTION", "为这个句子生成表示以用于检索相关菜谱：")
 
-# HF 镜像（国内环境加速）
+# HF 镜像（仅 local 模式用）
 HF_ENDPOINT = os.getenv("HF_ENDPOINT", "")
 if HF_ENDPOINT:
     os.environ.setdefault("HF_ENDPOINT", HF_ENDPOINT)

@@ -1,0 +1,5 @@
+# 本地 GPU RAG 模式（RAG_PROVIDER=local 时安装；默认 dashscope 云端模式不需要）
+# pip install -r requirements.txt -r requirements-local.txt
+torch>=2.2.0
+sentence-transformers>=3.0.0,<7.0.0
+transformers==4.51.3

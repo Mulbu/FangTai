@@ -1,17 +1,13 @@
-# LLM & API
+# 云端 RAG 模式（默认，无需本地 GPU）
 openai>=1.40.0
 fastapi>=0.110.0
 uvicorn[standard]>=0.29.0
 pydantic>=2.6.0
 httpx>=0.27.0
 
-# RAG (GPU inference)
-torch>=2.2.0
-sentence-transformers>=3.0.0,<7.0.0
-transformers==4.51.3
-numpy<2.0.0
-
-# Retrieval & data
+# 检索与数据（BM25 本地内存索引）
 jieba>=0.42.1
 rank-bm25>=0.2.2
 pandas>=2.2.0
+numpy<2.0.0
+# 本地 GPU 模式（RAG_PROVIDER=local）额外依赖见 requirements-local.txt

@@ -149,8 +149,9 @@ async def health():
         latency = round((time.perf_counter() - t0) * 1000)
         return {
             "status": "ok", "recipes": len(get_store().recipes),
-            "embedding_model": ret._embed_ready and "ready" or "bm25-only",
-            "embed_device": ret._embed_device,
+            "rag_provider": ret._provider_label(),
+            "vector": "ready" if ret._embed_ready else "bm25-only",
+            "rerank": "on" if ret._reranker else "off",
             "index_load_ms": latency,
         }
     except Exception as e:

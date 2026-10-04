@@ -1,93 +1,52 @@
 # 方太个性化膳食规划 Agent —— 全部配置集中于此（无 .env 文件）
 #
-# 启动（二选一，按评测机显存）：
-#   docker compose --profile a100-80g up -d --build   # A100 80G：bge-m3 + GPU重排
-#   docker compose --profile a100-12g up -d --build   # A100 12G：bge-large-zh + 轻量重排
+# RAG 已切换为阿里云百炼 API（嵌入 text-embedding-v4 + 重排 gte-rerank），
+# 无需本地 GPU；BM25 仍为本地内存索引，云 API 异常时自动降级纯 BM25。
 #
-# 本地开发机（任意显存，如 RTX 4060 8G）：profile a100-12g 同样适用
-# 已运行容器执行评测：py -3 scripts/eval.py --api http://127.0.0.1:8000
-
-x-common-env: &common-env
-  # ---------------- LLM（OpenAI 兼容协议，可换 DeepSeek/vLLM/Ollama 等） ----------------
-  # 部署时把 LLM_API_KEY 替换为你自己的密钥（智谱开放平台 https://open.bigmodel.cn）
-  LLM_BASE_URL: https://open.bigmodel.cn/api/paas/v4
-  LLM_API_KEY: YOUR_LLM_API_KEY
-  LLM_MODEL: glm-5.3-flash       # GLM-5.3-flash（thinking 格式自动探测）；也可换 glm-4.5-flash/DeepSeek 等
-  LLM_FAST_MODEL: glm-5.3-flash # 槽位抽取/选菜等轻任务；留空则同 LLM_MODEL
-  LLM_THINKING: high            # 思考强度：disabled/low/high/max，质量优先用 high
-  LLM_TEMPERATURE: "0.6"
-  LLM_MAX_TOKENS: "4096"
-  # ---------------- RAG（GPU 推理） ----------------
-  EMBEDDING_DEVICE: auto        # auto=有 CUDA 用 GPU
-  RERANKER_DEVICE: auto
-  # 模型国内镜像加速（评测环境无外网时，可挂载离线模型并注释此行）
-  HF_ENDPOINT: https://hf-mirror.com
-  # ---------------- 检索参数 ----------------
-  RECALL_TOPK: "60"
-  RERANK_TOPK: "20"
-  FINAL_CANDIDATES: "12"
+# 启动：
+#   docker compose up -d --build
+#   open http://127.0.0.1:8000
+# 评测：
+#   py -3 scripts/eval.py --api http://127.0.0.1:8000
 
 services:
-  # ================ A100 80G 档：bge-m3(1024维) + bge-reranker-v2-m3 ================
-  meal-agent-80g:
-    profiles: ["a100-80g"]
+  meal-agent:
     build: .
     image: fangtai-meal-agent:latest
     container_name: fangtai-meal-agent
     ports: ["8000:8000"]
     environment:
-      <<: *common-env
-      EMBEDDING_MODEL: BAAI/bge-m3
-      RERANKER_MODEL: BAAI/bge-reranker-v2-m3
+      # ---------------- LLM（OpenAI 兼容协议，可换 DeepSeek/vLLM/Ollama 等） ----------------
+      # 部署时把 LLM_API_KEY 替换为你自己的密钥（智谱开放平台 https://open.bigmodel.cn）
+      LLM_BASE_URL: https://open.bigmodel.cn/api/paas/v4
+      LLM_API_KEY: YOUR_LLM_API_KEY
+      LLM_MODEL: glm-5.3-flash       # GLM-5.3-flash（thinking 格式自动探测）；也可换 glm-4.5-flash/DeepSeek 等
+      LLM_FAST_MODEL: glm-5.3-flash  # 槽位抽取/选菜等轻任务；留空则同 LLM_MODEL
+      LLM_THINKING: high             # 思考强度：disabled/low/high/max，质量优先用 high
+      LLM_TEMPERATURE: "0.6"
+      LLM_MAX_TOKENS: "4096"
+      # ---------------- RAG（阿里云百炼 DashScope） ----------------
+      # 密钥替换为你自己的（阿里云百炼控制台 https://bailian.console.aliyun.com，sk- 开头）
+      RAG_PROVIDER: dashscope
+      DASHSCOPE_API_KEY: YOUR_DASHSCOPE_API_KEY
+      DASHSCOPE_EMBED_MODEL: text-embedding-v4   # 1024 维，10 条/批
+      DASHSCOPE_RERANK_MODEL: gte-rerank         # 留空禁用重排
+      # ---------------- 检索参数 ----------------
+      RECALL_TOPK: "60"
+      RERANK_TOPK: "20"
+      FINAL_CANDIDATES: "12"
+      # ---------------- 本地 GPU 模式（可选，一般不用） ----------------
+      # RAG_PROVIDER: local 时改用 CUDA 版 Dockerfile 并安装 requirements-local.txt，
+      # 且需要 GPU runtime；详见 docs/部署文档.md
     volumes:
-      - model-cache-80g:/root/.cache    # 嵌入/重排模型缓存
-      - index-cache-80g:/app/index      # 向量索引缓存（重启免重建）
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      - index-cache:/app/index      # 向量索引缓存（重启免重建）
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 300s   # 首次启动含模型下载与索引构建
-
-  # ================ A100 12G 档：bge-large-zh-v1.5 + 轻量重排 ================
-  meal-agent-12g:
-    profiles: ["a100-12g"]
-    build: .
-    image: fangtai-meal-agent:latest
-    container_name: fangtai-meal-agent
-    ports: ["8000:8000"]
-    environment:
-      <<: *common-env
-      EMBEDDING_MODEL: BAAI/bge-large-zh-v1.5
-      RERANKER_MODEL: BAAI/bge-reranker-base-zh-v1.5   # 轻量重排；显存紧张可置空串禁用
-    volumes:
-      - model-cache-12g:/root/.cache
-      - index-cache-12g:/app/index
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 300s
+      start_period: 300s   # 首次启动含云端索引构建（约 200 次 API 调用）
 
 volumes:
-  model-cache-80g:
-  index-cache-80g:
-  model-cache-12g:
-  index-cache-12g:
+  index-cache:

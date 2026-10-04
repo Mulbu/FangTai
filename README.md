@@ -18,18 +18,19 @@
 - 单用户单餐推荐：过敏/忌口双遍校验零违反、菜谱零幻觉
 - 多人多约束宴请：约束并集合并、荤素比/烹饪方式多样性、按人营养核算
 - 多轮动态交互：约束追加、局部替换、方案否定、模糊追问澄清、需求矛盾折中、上下文不遗忘
-- SSE 流式 API + Web 聊天界面 + Docker 一键部署（A100 80G/12G 双档 GPU 配置）
+- SSE 流式 API + Web 聊天界面 + Docker 一键部署（云端 RAG 零 GPU；可切本地 GPU 模式）
 
 ## 快速开始
 
 ```bash
-# Docker（全部配置在 docker-compose.yml，先把 LLM_API_KEY 换成你的密钥）
-docker compose --profile a100-80g up -d --build   # 或 a100-12g（小显存）
+# Docker（无需 GPU：RAG 用阿里云百炼 API；先把 LLM_API_KEY 和 DASHSCOPE_API_KEY 换成你的密钥）
+docker compose up -d --build
 open http://127.0.0.1:8000
 
 # 本地开发
 pip install -r requirements.txt
 set LLM_API_KEY=<你的key>
+set DASHSCOPE_API_KEY=<你的百炼key>
 python -m uvicorn app.main:app --port 8000
 ```
 
