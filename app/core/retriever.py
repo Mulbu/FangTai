@@ -384,6 +384,15 @@ class RecipeRetriever:
             except Exception as e:
                 print(f"[retriever] 重排失败，使用 RRF 序: {e}")
 
+        # 同名不同配方去重（保留排名最高者，避免一餐出现两道同名菜）
+        seen_names: set[str] = set()
+        deduped: list[RetrievedRecipe] = []
+        for r in results:
+            if r.recipe.name not in seen_names:
+                seen_names.add(r.recipe.name)
+                deduped.append(r)
+        results = deduped
+
         self.last_latency_ms = (time.perf_counter() - t0) * 1000
         return results[:topk]
 
