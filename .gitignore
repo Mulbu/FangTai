@@ -3,3 +3,20 @@
 # OS
 Thumbs.db
 .DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# 索引与模型缓存（可由 scripts/build_index.py 重建）
+index/
+
+# 运行产物
+*.log
+
+# IDE
+.idea/
+.vscode/
