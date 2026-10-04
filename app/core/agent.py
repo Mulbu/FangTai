@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from typing import AsyncIterator
 
@@ -254,6 +255,16 @@ class MealAgent:
             yield self._done(t0, first_ts, store)
             return
 
+        # 3.1) 加菜意图：在现有方案上追加（"再来点辣菜/加一道汤"），
+        #      已有菜品全部锁定保留，只选新增的 1-2 道
+        if (session.current_plan
+                and re.search(r"再来[一2两1]?[点道个份]|再添|再加[一1两2]?[道个份]|"
+                              r"加[一1两2]?[道个份](?!油|盐|糖|水)|添[一1两2]?[道个份]|多[加来][一1两2]?[道个份]", message)):
+            slots.intent = "add_dish"
+            for d in session.current_plan:
+                d.locked = True
+            kept_ids = {d.recipe_id for d in session.current_plan}
+
         if slots.intent in ("add_constraint", "replace_dish") and session.current_plan:
             # 最小化修改：只替换违规/被点名菜品，其余锁定
             replace_targets = session.violating_dishes()
@@ -277,6 +288,10 @@ class MealAgent:
             session.people, meal=session.meal)
         if slots.intent in ("add_constraint", "replace_dish") and session.current_plan:
             need_count = len(replace_targets)
+        elif slots.intent == "add_dish":
+            need_count = 2 if re.search(r"[两2二][道个份]", message) else 1
+            if session.dish_count and len(session.current_plan) < session.dish_count:
+                need_count = min(session.dish_count - len(session.current_plan), need_count) or 1
 
         # 3.5) 约束追加但当前方案零违规：方案保持不变，直接确认（最小化修改）
         if slots.intent == "add_constraint" and session.current_plan and not replace_targets:
@@ -306,12 +321,12 @@ class MealAgent:
             yield self._done(t0, first_ts, store, plan=plan_payload)
             return
 
-        # 4) 选菜池：约束变更轮用合并查询重检索（新忌口/新餐次要生效），否则用并行粗检索
-        query = message if slots.intent != "add_constraint" else (
+        # 4) 选菜池：约束变更/加菜轮用合并查询重检索，否则用并行粗检索
+        query = message if slots.intent not in ("add_constraint", "add_dish") else (
             (session.history[-2]["content"] if len(session.history) >= 2 else message) + " " + message
         )
         session.add_history("user", message)
-        if slots.intent in ("add_constraint", "replace_dish") and session.current_plan:
+        if slots.intent in ("add_constraint", "replace_dish", "add_dish") and session.current_plan:
             pool = await asyncio.to_thread(
                 candidate_pool, session, query, need_count + 16, True)
         else:
@@ -319,13 +334,15 @@ class MealAgent:
             pool = filter_by_meal(pool, session.meal, need_count + 8)
         if replace_targets:
             soup_needed = None  # 替换模式不强制汤
+        elif slots.intent == "add_dish":
+            soup_needed = True if dlg.rule_slots(message).soup_needed else None
         else:
             soup_needed = True if (session.meal or "晚餐") in ("午餐", "晚餐") else False
         picked = await llm_select(session, message, pool, need_count, soup_needed)
         new_items = finalize_plan(session, picked, need_count, soup_needed, pool=pool)
 
         # 5) 合入会话方案（保留 locked；新菜去重合入，数量缺口从池中补位）
-        if replace_targets or slots.intent in ("add_constraint", "replace_dish"):
+        if replace_targets or slots.intent in ("add_constraint", "replace_dish", "add_dish"):
             kept_items = [d for d in session.current_plan if d.recipe_id in kept_ids]
             existing = {d.recipe_id for d in kept_items}
             for item in new_items:

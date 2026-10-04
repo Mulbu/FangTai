@@ -98,7 +98,7 @@ def test_dialog_rules():
     s3 = dlg.rule_slots("我今天下班会比较晚，想做个半小时内能搞定的晚饭")
     assert s3.time_limit_min == 30 and s3.meal == "晚餐"
     s4 = dlg.rule_slots("做个四菜一汤，营养均衡一点的")
-    assert s4.dish_count == 4 and s4.soup_needed
+    assert s4.dish_count == 5 and s4.soup_needed  # 四菜一汤 = 4菜+1汤=5道
     s5 = dlg.rule_slots("晚上两个人吃")
     assert s5.people == 2
     s6 = dlg.rule_slots("周末想请几个人来家里吃饭")

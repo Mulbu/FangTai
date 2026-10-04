@@ -97,6 +97,9 @@ def rule_slots(message: str) -> TurnSlots:
         s.dish_count = COUNT_CN.get(val) or (int(val) if val.isdigit() else None)
     if _SOUP_PAT.search(msg):
         s.soup_needed = True
+        # "四菜一汤"语义 = 4菜 + 1汤 = 5 道
+        if s.dish_count and re.search(rf"[菜].{{0,3}}汤", msg):
+            s.dish_count += 1
     # 口味正/反向
     for w in _TASTE_WORDS:
         if w in msg:
