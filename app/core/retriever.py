@@ -222,6 +222,11 @@ class RecipeRetriever:
     def _init_models_and_index(self):
         t0 = time.perf_counter()
         self.bm25 = BM25Okapi(self.corpus_tokens)
+        # 未配置百炼 Key 直接报错：静默退化纯 BM25 会给出误导性的检索/评测结果
+        if config.RAG_PROVIDER != "local" and not config.DASHSCOPE_API_KEY:
+            raise RuntimeError(
+                "RAG_PROVIDER=dashscope 但 DASHSCOPE_API_KEY 未配置：混合检索需要百炼 API。"
+                "请配置 Key，或设 RAG_PROVIDER=local（本地 GPU 模式）")
         # 嵌入器
         try:
             self._embedder = self._make_embedder()

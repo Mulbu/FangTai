@@ -20,3 +20,6 @@ index/
 # IDE
 .idea/
 .vscode/
+
+# 本地 API 密钥（不入库）
+scripts/.keys.env

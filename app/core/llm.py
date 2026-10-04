@@ -64,7 +64,9 @@ class LLMClient:
     @staticmethod
     def _is_thinking_param_error(e: Exception) -> bool:
         s = str(e)
-        return "1210" in s or "不支持关闭思考" in s or "thinking" in s.lower() and "400" in s
+        # DeepSeek 拒绝未知 thinking 枚举返回 422 unknown variant（GLM 为 400/1210）
+        return ("1210" in s or "不支持关闭思考" in s or "unknown variant" in s
+                or "thinking" in s.lower() and ("400" in s or "422" in s))
 
     async def _resolve_extra(self, thinking: str | None, probe) -> dict | None:
         """返回可用的 extra_body；对思考参数格式做一次探测并缓存。
@@ -116,19 +118,25 @@ class LLMClient:
 
     async def chat_fast(self, messages: list[dict], temperature: float = 0.2) -> str:
         """轻量任务（意图识别/选菜）：快速模型优先，余额/限流时自动回退主模型。"""
+        model = self.fast_model
         try:
-            return await self.chat(
-                messages, model=self.fast_model, temperature=temperature,
-                max_tokens=1024,
+            out = await self.chat(
+                messages, model=model, temperature=temperature,
+                max_tokens=3072,
             )
+            if out.strip():
+                return out
+            # 思考模型高强度推理可能耗尽 token 上限导致正文为空（JSON 解析必失败）
+            print(f"[llm] {model} 正文为空（思考耗尽上限），关闭思考重试")
         except Exception as e:
-            if any(c in str(e) for c in ("1113", "429", "1301", "1302")) and self.fast_model != self.model:
-                print(f"[llm] 快速模型 {self.fast_model} 不可用({str(e)[:60]})，回退 {self.model}")
-                return await self.chat(
-                    messages, model=self.model, temperature=temperature,
-                    max_tokens=1024,
-                )
-            raise
+            if not (any(c in str(e) for c in ("1113", "429", "1301", "1302")) and self.fast_model != self.model):
+                raise
+            print(f"[llm] 快速模型 {self.fast_model} 不可用({str(e)[:60]})，回退 {self.model}")
+            model = self.model
+        return await self.chat(
+            messages, model=model, temperature=temperature,
+            max_tokens=2048, thinking="disabled",
+        )
 
     # ---------- 流式 ----------
     async def chat_stream(
